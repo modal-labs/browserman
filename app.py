@@ -1,4 +1,5 @@
 import json
+from urllib.parse import urlparse
 
 import modal
 import base64
@@ -94,7 +95,8 @@ async def session(query: str):
     async with async_playwright() as p:
         print("Launching chromium...")
         browser = await p.chromium.launch()
-        page = await browser.new_page()
+        context = await browser.new_context()
+        page = await context.new_page()
         
         step += 1
 
@@ -115,6 +117,15 @@ async def session(query: str):
             else:
                 assert "url" in target
                 url = target["url"]
+
+                url_parts = urlparse(url)
+                cookies = cookie_dict.get(url_parts.netloc)
+                if cookies:
+                    print(f"Adding cookies for {url_parts.netloc} to context...")
+                    cookies = json.loads(cookies)
+                    await context.add_cookies(cookies)
+                else:
+                    print(f"Did not find cookies for {url_parts.netloc}")
 
                 print(f"Going to url: {url}...")
                 await page.goto(url)
