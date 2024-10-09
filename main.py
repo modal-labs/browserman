@@ -113,8 +113,6 @@ if __name__ == "__main__":
     Please order me food from doordash.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
     """
 
-    # <|eot_id|><|start_header_id|>system<|end_header_id|>
-
     image = Image.open("doordash_01.png")
 
     f = modal.Function.lookup(APP_NAME, "Model.inference")
