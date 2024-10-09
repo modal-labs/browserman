@@ -130,7 +130,7 @@
                     } else if (data.button) {
                       this.lastText = `Clicking button with text ${data.button}...`;
                     } else if (data.final_answer) {
-                      this.lastText = `Final answer: ${data.button}`;
+                      this.lastText = `Final answer: ${data.final_answer}`;
                       this.done = true;
                       eventSource.close();
                     }
