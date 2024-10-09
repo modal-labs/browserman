@@ -17,7 +17,7 @@ app = modal.App(APP_NAME, image=image)
 MODEL_NAME = "neuralmagic/Llama-3.2-90B-Vision-Instruct-FP8-dynamic"
 
 
-@app.cls(gpu=modal.gpu.H100(), container_idle_timeout=20 * 60)
+@app.cls(gpu=modal.gpu.H100(count=8), container_idle_timeout=20 * 60)
 class Model:
     @modal.build()
     def build(self):
@@ -29,14 +29,14 @@ class Model:
     @modal.enter()
     def enter(self):
         from vllm import LLM
-        self.llm = LLM(model=MODEL_NAME, max_num_seqs=1, enforce_eager=True)
+        self.llm = LLM(model=MODEL_NAME, max_num_seqs=1, enforce_eager=True, tensor_parallel_size=8)
 
     @modal.method()
     def inference(self, prompt, image):
         from vllm import SamplingParams
 
         # Set up sampling parameters
-        sampling_params = SamplingParams(temperature=0.2, max_tokens=30)
+        sampling_params = SamplingParams(temperature=0.2, max_tokens=300)
 
         # Generate the response
         inputs = {

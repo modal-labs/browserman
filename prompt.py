@@ -57,21 +57,20 @@ if __name__ == "__main__":
     - Put the entire function call reply on one line
     - Always add your sources when using search results to answer the user query
     
-    You are a helpful assistant. 
+    You are an obedient and helpful assistant that excels in following instructions to the letter. 
     
-    Past actions taken: 
-    * <function=navigate_to>{"url": "https://www.doordash.com/"}</function>
-    Screenshot from current web page:<|image|>
-    DOM of current web page:CURRENT_DOM
+    Previous step: <function=click_button>{"button_text": "Empanada Mama"}</function>
+
+    Screenshot from current step:<|image|>
+    DOM of current step:CURRENT_DOM
     
-    What is the next action we should take?<|eot_id|><|start_header_id|>user<|end_header_id|>
-    
+    Please provide the next function to call.<|eot_id|><|start_header_id|>user<|end_header_id|>
     Please order me food from doordash.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
     """)
 
-    current_dom = Path("doordash_02.html").read_text()
+    current_dom = Path("doordash_03.html").read_text()
 
-    from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup, Tag
 
     soup = BeautifulSoup(current_dom)
     extracted = []
@@ -79,9 +78,15 @@ if __name__ == "__main__":
         t.extract()
     for t in soup.find_all("svg"):
         t.extract()
-    for e in soup.find_all("a"):
-        extracted.append(e)
-    cleaned_dom = str(soup)
+    for e in soup.descendants:
+        if isinstance(e, Tag):
+            unwanted_attrs = [attr for attr in e.attrs if attr != "href" and attr != "content" and attr != "id"]
+            for attr in unwanted_attrs:
+                del e[attr]
+    for t in soup.find_all("a"):
+        extracted.append(t)
+
+    cleaned_dom = "\n".join([str(e) for e in extracted])
     print(f"cleaned dom len: {len(cleaned_dom)}")
 
     # print(cleaned_dom)
@@ -92,7 +97,8 @@ if __name__ == "__main__":
 
     image_01 = Image.open("doordash_01.png")
     image_02 = Image.open("doordash_02.png")
+    image_03 = Image.open("doordash_03.png")
 
     f = modal.Function.lookup(APP_NAME, "Model.inference")
-    result = f.remote(prompt, image_01)
+    result = f.remote(prompt, image_03)
     print(result)
