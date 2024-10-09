@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "browserman",
+  "description": "all your cookies are belong to us",
+  "version": "1.0",
+  "action": {
+    "default_title": "browserman",
+    "default_popup": "index.html"
+  },
+  "host_permissions": [
+    "*://*.doordash.com/"
+  ],
+  "permissions": [
+    "cookies",
+    "activeTab",
+    "tabs"
+   ]
+}
