@@ -71,7 +71,7 @@ USER_QUERY_PLACEHOLDER<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 Step STEP_PLACEHOLDER:"""
 
 
-def prompt(query: str, current_url: str, current_dom: str, history: typing.Sequence[str]) -> str:
+def get_prompt(query: str, current_url: str, current_dom: str, history: typing.Sequence[str]) -> str:
     prompt = PROMPT_TEMPLATE.replace("USER_QUERY_PLACEHOLDER", query)
     prompt = prompt.replace("STEP_PLACEHOLDER", str(len(history) + 1))
     if history:

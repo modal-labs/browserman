@@ -9,9 +9,22 @@ app = modal.App("browserman")
 
 events = modal.Queue.from_name("browserman-events", create_if_missing=True)
 
+volume = modal.Volume.from_name("browserman-volume", create_if_missing=True)
+
 frontend_path = Path(__file__).parent / "frontend"
 
 screenshots_path = Path("/tmp/screenshots")
+
+dummy_output = """<function=navigate_to>{"url": "https://www.doordash.com/"}</function>
+Step 2: <function=click_button>{"button_text": "Sign In"}</function>
+Step 3: <function=click_button>{"button_text": "Enter Delivery Address"}</function>
+Step 4: <function=click_button>{"button_text": "Search for restaurants"}</function>
+Step 5: <function=click_button>{"button_text": "Pizza"}</function>
+Step 6: <function=click_button>{"button_text": "Select a restaurant"}</function>
+Step 7: <function=click_button>{"button_text": "Choose a pizza"}</function>
+Step 8: <function=click_button>{"button_text": "Add to cart"}</function>
+Step 9: <function=click_button>{"button_text": "Checkout"}</function>
+Step 10: <function=click_button>{"button_text": "Place Order"}</function>"""
 
 playwright_image = (
     modal.Image.debian_slim(python_version="3.10" )
@@ -31,7 +44,7 @@ playwright_image = (
 with playwright_image.imports():
     from bs4 import BeautifulSoup
     from playwright.async_api import async_playwright
-    from prompt import prompt as get_prompt
+    from prompt import get_prompt
     from PIL import Image
 
 def encode_image(image):
@@ -43,26 +56,35 @@ def encode_image(image):
     return base64.b64encode(resized_image_bytes).decode('utf-8')
 
 @app.function(image=playwright_image, allow_concurrent_inputs=10,     mounts=[modal.Mount.from_local_python_packages("prompt")])
+def extract_parameters(output = dummy_output):
+    output = output.split('\n')[0]
+
+    soup = BeautifulSoup(output, features="html.parser")
+    for e in soup.find_all('function=navigate_to'):
+        data = json.loads(e.contents[0])
+        print(data)
+        return data
+    for e in soup.find_all('function=click_button'):
+        data = json.loads(e.contents[0])
+        print(data)
+        return data
+    return None
+
+@app.function(image=playwright_image, allow_concurrent_inputs=10,     mounts=[modal.Mount.from_local_python_packages("prompt")], volumes={"/data": volume})
 async def session(query: str):
     call_id = modal.current_function_call_id()
     # Unique screenshot paths so we can see them all at the end.
     screenshot_index = 0
-    screenshot_name_fmt = screenshots_path / call_id / "screenshot_%d.png"
+
     def get_next_screenshot_path():
-        global screenshot_index
-        return_val = screenshot_name_fmt % screenshot_index
+        nonlocal screenshot_index
+        return_val = screenshots_path / call_id / f"screenshot_{screenshot_index}.png"
         screenshot_index += 1
         return return_val
 
     def get_last_screenshot_path():
-        global screenshot_index
-        return screenshot_name_fmt % (screenshot_index - 1)
-
-    def extract_parameters(output):
-        soup = BeautifulSoup(output, features="html.parser")
-        for e in soup.find_all('function'):
-            return json.loads(e.contents[0])
-        return None
+        nonlocal screenshot_index
+        return screenshots_path / call_id / f"screenshot_{screenshot_index - 1}.png"
 
     Model = modal.Cls.lookup("browserman", "Model")
 
@@ -79,9 +101,10 @@ async def session(query: str):
         output = await Model().inference.remote.aio(prompt, None)
         print(f"\tModel output: {output}")
 
-        parameters = extract_parameters(output)
+        parameters = extract_parameters.local(output)
+        print("Parameters: ", parameters)
         if parameters is not None:
-            if parameters.has_key("url"):
+            if "url" in parameters:
                 url = parameters["url"]
                 break
     await events.put.aio(parameters, partition = call_id)
@@ -105,9 +128,18 @@ async def session(query: str):
         # Step 2): Loop: LLM(screenshot) -> text of button to click
         while True:
             image = Image.open(get_last_screenshot_path())
-            dom = page.content()
+            dom = await page.content()
+            # print(dom)
+            # print(type(dom))
+            # breakpoint()
+            print(type(dom))
+            Path("/data").mkdir(parents=True, exist_ok=True)
+            with open("/data/dom.txt", "w") as f:
+                f.write(dom)
+            dom = str(dom)
             await events.put.aio({"image": encode_image(image)}, partition = call_id)
 
+            print(query)
             prompt = get_prompt(query, url, history, dom)
 
             # Retry indefinitely until we get a valid action
@@ -117,9 +149,9 @@ async def session(query: str):
                 print(f"\tModel output: {output}")
 
                 # * <function=click_button>{"button_text": "Delivery Fees: Under $3"}</function>
-                parameters = extract_parameters(output)
+                parameters = extract_parameters.local(output)
                 if parameters is not None:
-                    if parameters.has_key("button_text"):
+                    if "button_text" in parameters:
                         button_text = parameters["button_text"]
                         break
             await events.put.aio({"text": output}, partition = call_id)
