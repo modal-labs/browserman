@@ -70,8 +70,7 @@ HISTORY_PLACEHOLDER
 CURRENT_URL_PLACEHOLDER
 
 USER_QUERY_PLACEHOLDER<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-Step STEP_PLACEHOLDER:
-"""
+Step STEP_PLACEHOLDER:"""
 
 
 def prompt(query: str, current_url: str, current_dom: str, history: typing.Sequence[str]) -> str:
@@ -84,7 +83,7 @@ def prompt(query: str, current_url: str, current_dom: str, history: typing.Seque
         prompt = prompt.replace("HISTORY_PLACEHOLDER", "")
 
     if current_dom:
-        soup = BeautifulSoup(current_dom)
+        soup = BeautifulSoup(current_dom, features="html.parser")
         extracted = []
         for t in soup.find_all("script"):
             t.extract()
@@ -120,14 +119,14 @@ def main():
 
     f = modal.Function.lookup(APP_NAME, "Model.inference")
 
-    # prompt_00 = prompt(QUERY, "", "", [])
-    # print("Prompt 1")
-    # print("======")
-    # print(prompt_00)
-    # step_01 = f.remote(prompt_00, None)
-    # print("Step 1")
-    # print("======")
-    # print(step_01)
+    prompt_00 = prompt(QUERY, "", "", [])
+    print("Prompt 1")
+    print("======")
+    print(prompt_00)
+    step_01 = f.remote(prompt_00, None)
+    print("Step 1")
+    print("======")
+    print(step_01)
 
     prompt_01 = prompt(QUERY, "https://www.doordash.com/home/",
                        Path("doordash_01.html").read_text(),
@@ -219,7 +218,7 @@ def _old_hardcoded_prompt():
 
     from bs4 import BeautifulSoup, Tag
 
-    soup = BeautifulSoup(current_dom)
+    soup = BeautifulSoup(current_dom, features="html.parser")
     extracted = []
     for t in soup.find_all("script"):
         t.extract()
