@@ -131,6 +131,7 @@
           return {
             nextPrompt: "",
             currentPrompt: "",
+            callId: null,
             items: [],
             info: {
               loaded: false,
@@ -160,33 +161,30 @@
                 .then((response) => response.json())
                 .then((data) => {
                   console.log(data);
+                  this.callId = data.call_id;
+
+                  const eventSource = new EventSource(
+                    `/status/${this.callId}`,
+                  );
+
+                  console.log("Created event source ...");
+
+                  eventSource.onmessage = (event) => {
+                    console.log(event);
+                    // item.completion += JSON.parse(event.data).text;
+                    // item.markdownCompletion = marked.parse(item.completion, {mangle: false, headerIds: false});
+                    // // Hacky way to notify element to update
+                    // this.items = this.items.map((i) =>
+                    //   i.id === item.id ? { ...item } : i,
+                    // );
+                  };
+
+                  eventSource.onerror = (event) => {
+                    // eventSource.close();
+                    console.log(event);
+                  };
                 })
                 .catch((error) => console.log(error));
-
-              // this.items.push(item);
-              // const eventSource = new EventSource(
-              //   `/completion/${encodeURIComponent(item.prompt)}`,
-              // );
-
-              // console.log("Created event source ...");
-
-              // eventSource.onmessage = (event) => {
-              //   item.completion += JSON.parse(event.data).text;
-              //   item.markdownCompletion = marked.parse(item.completion, {mangle: false, headerIds: false});
-              //   // Hacky way to notify element to update
-              //   this.items = this.items.map((i) =>
-              //     i.id === item.id ? { ...item } : i,
-              //   );
-              // };
-
-              // eventSource.onerror = (event) => {
-              //   eventSource.close();
-              //   item.loading = false;
-              //   this.items = this.items.map((i) =>
-              //     i.id === item.id ? { ...item } : i,
-              //   );
-              //   console.log(item.completion);
-              // };
             },
             refreshInfo() {
             },

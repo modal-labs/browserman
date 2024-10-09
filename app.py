@@ -1,7 +1,10 @@
 import modal
+import base64
 from pathlib import Path
 
 app = modal.App("browserman")
+
+events = modal.Queue.from_name("browserman-events", create_if_missing=True)
 
 frontend_path = Path(__file__).parent / "frontend"
 
@@ -136,26 +139,32 @@ def main():
     import fastapi.staticfiles
 
     from fastapi import Request
+    from fastapi.responses import StreamingResponse
     web_app = fastapi.FastAPI()
-
-    # Model = modal.Cls.lookup("browserman", "Model")
-
-    # @web_app.get("/completion/{question}")
-    # async def completion(question: str):
-    #     from urllib.parse import unquote
-
-    #     async def generate():
-    #         # TODO: stream
-    #         text = await Model().inference.remote.aio( unquote(question))
-    #         yield f"data: {json.dumps(dict(text=text), ensure_ascii=False)}\n\n"
-
-    #     return StreamingResponse(generate(), media_type="text/event-stream")
 
     @web_app.post("/start")
     async def start(request: Request):
         data = await request.json()
-        call = session.spawn(data["query"])
+        call = await session.spawn.aio(data["query"])
         return {"call_id": call.object_id}
+
+    @web_app.get("/status/{call_id}")
+    async def status(call_id: str):
+        async def generate():
+            while True:
+                event = await events.get.aio(partition = call_id)
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+                if event.get("done", False):
+                    break
+
+        return StreamingResponse(generate(), media_type="text/event-stream")
+
+    @web_app.post("/cookies")
+    async def cookies(request: Request):
+        data = await request.json()
+
+
 
     web_app.mount(
         "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
