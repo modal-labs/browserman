@@ -124,7 +124,8 @@ async def session(query: str):
                 cookies = cookie_dict.get(url_parts.netloc)
                 if cookies:
                     print(f"Adding cookies for {url_parts.netloc} to context...")
-                    cookies = json.loads(cookies)
+                    for cookie in cookies:
+                        cookie.pop("sameSite", None)
                     await context.add_cookies(cookies)
                 else:
                     print(f"Did not find cookies for {url_parts.netloc}")
