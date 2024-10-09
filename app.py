@@ -37,7 +37,7 @@ with playwright_image.imports():
     from PIL import Image
 
 def encode_image(image):
-    resized_image = image.resize((320, 180))
+    resized_image = image.resize((480, 270))
 
     buffer = io.BytesIO()
     resized_image.save(buffer, format="PNG")
@@ -110,9 +110,8 @@ async def session(query: str):
 
             if "button" in target:
                 button = target["button"]
-                async with page.expect_navigation():
-                    print(f"Clicking {button}...")
-                    await button.click(timeout=5000)
+                print(f"Clicking {button}...")
+                await button.click(timeout=5000)
             else:
                 assert "url" in target
                 url = target["url"]
