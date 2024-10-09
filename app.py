@@ -92,7 +92,7 @@ async def session(query: str):
                 return {"button": button}
 
     async with async_playwright() as p:
-        print("Launchng chromium...")
+        print("Launching chromium...")
         browser = await p.chromium.launch()
         page = await browser.new_page()
         
