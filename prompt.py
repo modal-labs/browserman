@@ -16,11 +16,11 @@ You have access to the following functions to interact with web pages using a we
 Use the function 'navigate_to' to: To open a web page
 {
     "name": "navigate_to",
-    "description": "Navigate to a web page in a browser",
+    "description": "Navigate to a root web page in a browser",
     "parameters": {
         "url": {
             "param_type": "string",
-            "description": "URL of webpage",
+            "description": "URL of homepage",
             "required": true
         }
     }
@@ -44,7 +44,7 @@ Use the function 'final_answer' to: To come up with a final text response to the
     "name": "final_answer",
     "description": "Respond to the user's query based on the web page content",
     "parameters": {
-        "button_text": {
+        "final_answer": {
             "param_type": "string",
             "description": "final answer",
             "required": true

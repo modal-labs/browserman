@@ -53,7 +53,7 @@ def extract_parameters(output):
         return json.loads(e.contents[0])
     for e in soup.find_all('function=click_button'):
         return json.loads(e.contents[0])
-    return None
+    return {}
 
 def get_screenshot_path(call_id: str, idx: int):
     return screenshots_path / call_id / f"screenshot_{idx}.png"
@@ -71,12 +71,11 @@ async def session(query: str):
     async def get_next_target(page):
         nonlocal url, dom, history
         prompt = get_prompt(query, url, dom, history)
-        print("Prompt: ", prompt)
+        print(f"======Step {step}=====")
 
         # Retry indefinitely until we get a URL
         while True:
-            print("Attempting to get URL from Model...")
-            output = await Model().inference.remote.aio(prompt, None)
+            output = await Model().inference.remote.aio(prompt, None, temperature=0.1)
             history.append(output) # TODO: truncate?
             print(f"Model output: {output}")
 
@@ -133,7 +132,6 @@ async def session(query: str):
                 print(f"Going to url: {url}...")
                 await page.goto(url)
 
-            print("Waiting for navigation & networkidle & load state...")
             await page.wait_for_load_state("networkidle")
             await page.wait_for_load_state("load")
 
