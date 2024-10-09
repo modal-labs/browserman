@@ -26,6 +26,19 @@ Use the function 'navigate_to' to: To open a web page
     }
 }
 
+Use the function 'go_back' to: To navigate back to the previous web page
+{
+    "name": "go_back",
+    "description": "Navigate back to the previous web page",
+    "parameters": {
+        "go_back": {
+            "param_type": "string",
+            "description": "Reason for going back",
+            "required": true
+        }
+    }
+}
+
 Use the function 'click_button' to: To click a button on the web page.
 {
     "name": "click_button",

@@ -115,6 +115,9 @@ async def session(query: str):
                 await button.click(timeout=30_000)
             elif "final_answer" in target:
                 break
+            elif "go_back" in target:
+                print("Going back")
+                await page.go_back()
             else:
                 assert "url" in target
                 url = target["url"]
