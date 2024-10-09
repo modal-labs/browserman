@@ -1,3 +1,5 @@
+import json
+
 import modal
 import base64
 import io
@@ -27,6 +29,7 @@ playwright_image = (
 )
 
 with playwright_image.imports():
+    from bs4 import BeautifulSoup
     from playwright.async_api import async_playwright
     from prompt import prompt as get_prompt
     from PIL import Image
@@ -56,12 +59,10 @@ async def session(query: str):
         return screenshot_name_fmt % (screenshot_index - 1)
 
     def extract_parameters(output):
-        #TODO Use soup
-        # * <function=navigate_to>{"url": "https://www.doordash.com/"}</function>
-        print("Received output: ", output)
-        if output.find("{") != -1 and output.find("}") != -1:
-            i,j = output.find("{"), output.find("}")
-            return dict(output[i+1:j])
+        soup = BeautifulSoup(output, features="html.parser")
+        for e in soup:
+            assert e.name.startswith('function=')
+            return json.loads(e.contents[0])
         return None
 
     Model = modal.Cls.lookup("browserman", "Model")
