@@ -102,13 +102,13 @@ if __name__ == "__main__":
     - Put the entire function call reply on one line
     - Always add your sources when using search results to answer the user query
     
-    You are a helpful assistant. Please use a sequence of function calls to satisfy the user request.
+    You are a helpful assistant. 
     
     Past actions taken: 
     * <function=navigate_to>{"url": "https://www.doordash.com/"}</function>
     Screenshot from last action taken:<|image|>
     
-    What action should we take using the browser with the functions provided above?<|eot_id|><|start_header_id|>user<|end_header_id|>
+    What is the next action we should take?<|eot_id|><|start_header_id|>user<|end_header_id|>
     
     Please order me food from doordash.<|eot_id|><|start_header_id|>assistant<|end_header_id|>
     """
