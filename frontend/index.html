@@ -99,6 +99,9 @@
               };
               this.currentPrompt = item.prompt;
               this.nextPrompt = "";
+              this.lastText = "";
+              this.lastImage = "";
+              this.done = false;
 
               fetch("/start", {
                 method: "POST",
@@ -127,6 +130,7 @@
                     } else if (data.button) {
                       this.lastText = `Clicking button with text ${data.button}...`;
                     } else if (data.final_answer) {
+                      this.lastText = `Final answer: ${data.button}`;
                       this.done = true;
                       eventSource.close();
                     }

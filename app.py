@@ -49,10 +49,10 @@ def extract_parameters(output):
     output = output.split('\n')[0]
 
     soup = BeautifulSoup(output, features="html.parser")
-    for e in soup.find_all('function=navigate_to'):
-        return json.loads(e.contents[0])
-    for e in soup.find_all('function=click_button'):
-        return json.loads(e.contents[0])
+    for function_name in ['navigate_to', 'click_button', 'final_answer', 'go_back']:
+        element = soup.find(f'function={function_name}')
+        if element:
+            return json.loads(element.contents[0])
     return {}
 
 def get_screenshot_path(call_id: str, idx: int):
@@ -73,21 +73,19 @@ async def session(query: str):
         prompt = get_prompt(query, url, dom, history)
         print(f"======Step {step}=====")
 
-        # Retry indefinitely until we get a URL
-        while True:
-            output = await Model().inference.remote.aio(prompt, None, temperature=0.1)
+        # Retry until we get a URL
+        for i in range(10):
+            output = await Model().inference.remote.aio(prompt, None, temperature=0.2)
             history.append(output) # TODO: truncate?
             print(f"Model output: {output}")
 
             parameters = extract_parameters(output)
             print("Parameters: ", parameters)
 
-            if "url" in parameters:
-                return {"url": parameters["url"]}
-            elif "final_answer" in parameters:
-                return {"final_answer": parameters["final_answer"]}
-            elif "button_text" in parameters:
-                return {"button_text": parameters["button_text"]}
+            if parameters:
+                return parameters
+
+        raise Exception("Failed to get URL from Model")
 
     async with async_playwright() as p:
         print("Launching chromium...")
@@ -110,7 +108,32 @@ async def session(query: str):
 
             if "button_text" in target:
                 print(f"Looking for button with text={target['button_text']}...")
-                button = page.get_by_role('link', name=target['button_text']).nth(0)
+                options = page.get_by_role('link', name=target['button_text'])
+                print(options)
+                button = options.nth(0)
+                bounding_box = await button.bounding_box()
+                print(f"Button position: x={bounding_box['x']}, y={bounding_box['y']}")
+                print(f"Button size: width={bounding_box['width']}, height={bounding_box['height']}")
+                
+                # Crop the bounding box area from the existing image
+                # Get the page's viewport size
+                scale_x = page.viewport_size['width'] / image.width
+                scale_y = page.viewport_size['height'] / image.height
+
+                # Scale the bounding box coordinates
+                scaled_x = int(bounding_box['x'] * scale_x)
+                scaled_y = int(bounding_box['y'] * scale_y)
+                scaled_width = int(bounding_box['width'] * scale_x)
+                scaled_height = int(bounding_box['height'] * scale_y)
+
+                # Crop the image using the scaled coordinates
+                cropped_image = image.crop((
+                    scaled_x,
+                    scaled_y,
+                    scaled_x + scaled_width,
+                    scaled_y + scaled_height
+                ))
+                await events.put.aio({"image": encode_image(cropped_image)}, partition = call_id)
                 print(f"Clicking {button}...")
                 await button.click(timeout=30_000)
             elif "final_answer" in target:
