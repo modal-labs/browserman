@@ -1,5 +1,7 @@
 import modal
+import logging
 import base64
+import io
 from pathlib import Path
 
 app = modal.App("browserman")
@@ -8,17 +10,43 @@ events = modal.Queue.from_name("browserman-events", create_if_missing=True)
 
 frontend_path = Path(__file__).parent / "frontend"
 
-@app.function()
-def session(query: str):
+screenshots_path = Path("/tmp/screenshots")
+
+playwright_image = (
+    modal.Image.debian_slim(python_version="3.10" )
+    .run_commands(  # Doesn't work with 3.11 yet
+        "apt-get update",
+        "apt-get install -y software-properties-common",
+        "apt-add-repository non-free",
+        "apt-add-repository contrib",
+        "pip install playwright==1.47.0",
+        "playwright install-deps chromium",
+        "playwright install chromium",
+    )
+    .pip_install("Pillow")
+)
+
+with playwright_image.imports():
+    from playwright.async_api import async_playwright
     from urllib.parse import unquote
     from PIL import Image
 
+def encode_image(image):
+    resized_image = image.resize((256, 256))
+
+    buffer = io.BytesIO()
+    resized_image.save(buffer, format="PNG")
+    resized_image_bytes = buffer.getvalue()
+    return base64.b64encode(resized_image_bytes).decode('utf-8')
+
+@app.function(image=playwright_image, allow_concurrent_inputs=10)
+async def session(query: str):
+    call_id = modal.current_function_call_id()
+
     try:
-        L.info(f"Setup...")
         # Unique screenshot paths so we can see them all at the end.
-        global screenshot_index
         screenshot_index = 0
-        screenshot_name_fmt = f"{screenshots_path}/screenshot_%d.png"
+        screenshot_name_fmt = screenshots_path / call_id / "screenshot_%d.png"
         def get_next_screenshot_path():
             global screenshot_index
             return_val = screenshot_name_fmt % screenshot_index
@@ -29,21 +57,14 @@ def session(query: str):
             global screenshot_index
             return screenshot_name_fmt % (screenshot_index - 1)
 
-        def extract_paramaters(output):
+        def extract_parameters(output):
             #TODO Use soup
             # * <function=navigate_to>{"url": "https://www.doordash.com/"}</function>
             if output.find("{") != -1 and output.find("}") != -1:
                 i,j = output.find("{"), output.find("}")
                 return dict(output[i+1:j])
             return None
-            # * <function=navigate_to>{"url": "https://www.doordash.com/"}</function>
-            if output.find("{") != -1 and output.find("}") != -1:
-                i,j = output.find("{"), output.find("}")
-                return unquote(dict(output[i+1:j])["url"])
-            return None
 
-        # Modal Stuff
-        call_id = modal.current_function_call_id()
         Model = modal.Cls.lookup("browserman", "Model")
 
         # Step 1): Get a URL given the prompt
@@ -54,11 +75,11 @@ def session(query: str):
         prompt = get_prompt(query, url, history, dom)
         # Retry indefinitely until we get a URL
         while True:
-            L.info(f"Attempting to get URL from Model...")
+            print(f"Attempting to get URL from Model...")
             output = await Model().inference.remote.aio(prompt)
-            L.info(f"\tModel output: {output}")
+            print(f"\tModel output: {output}")
 
-            parameters = extract_paramaters(output)
+            parameters = extract_parameters(output)
             if parameters is not None:
                 if parameters.has_key("url"):
                     url = parameters["url"]
@@ -68,54 +89,56 @@ def session(query: str):
 
         # Step 2): Obtain initial screenshot
         async with async_playwright() as p:
-            L.info(f"Launch chromium...")
+            print(f"Launch chromium...")
             browser = await p.chromium.launch()
             page = await browser.new_page()
 
-            L.info(f"Going to url: {url}...")
+            print(f"Going to url: {url}...")
             await page.goto(url)
 
-            L.info(f"Waiting for load state...")
+            print(f"Waiting for load state...")
             await page.wait_for_load_state("load")
 
-            L.info(f"Taking screenshot #{screenshot_index}...")
+            print(f"Taking screenshot #{screenshot_index}...")
             await page.screenshot(path=get_next_screenshot_path())
 
             # Step 2): Loop: LLM(screenshot) -> text of button to click
             while True:
                 image = Image.open(get_last_screenshot_path())
                 dom = page.content()
+                await events.put.aio({"image": encode_image(image)}, partition = call_id)
+
                 prompt = get_prompt(query, url, history, dom)
 
                 # Retry indefinitely until we get a valid action
                 while True:
-                    L.info(f"Attempting to get action from Model...")
+                    print(f"Attempting to get action from Model...")
                     output = LLM(image, prompt_for_button_format)
-                    L.info(f"\tModel output: {output}")
+                    print(f"\tModel output: {output}")
 
                     # * <function=click_button>{"button_text": "Delivery Fees: Under $3"}</function>
-                    parameters = extract_paramaters(output)
+                    parameters = extract_parameters(output)
                     if parameters is not None:
                         if parameters.has_key("button_text"):
                             button_text = parameters["button_text"]
                             break
-                await events.put.aio(parameters, partition = call_id)
+                await events.put.aio({"text": output}, partition = call_id)
                 history.append(output)
 
                 if button_text == "Done":  # XXX Never? XXX
                     break
 
-                L.info(f"Looking for button with text={button_text}...")
+                print(f"Looking for button with text={button_text}...")
                 button = page.get_by_role('link', name=button_text).nth(0)
-                L.info(f"Clicking {button}...")
+                print(f"Clicking {button}...")
                 async with page.expect_navigation():
                     await button.click(timeout=5000)
 
-                L.info(f"Waiting for navigation & networkidle & load state...")
+                print(f"Waiting for navigation & networkidle & load state...")
                 await page.wait_for_load_state("networkidle")
                 await page.wait_for_load_state("load")
 
-                L.info(f"Taking screenshot #{screenshot_index}...")
+                print(f"Taking screenshot #{screenshot_index}...")
                 await page.screenshot(path=get_next_screenshot_path())
 
     except Exception as e:
