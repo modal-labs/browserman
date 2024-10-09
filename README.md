@@ -1,5 +1,5 @@
 # Run
-- modal run -i browserman.py
+- modal run -i playwright_llm_start.py
 - modal volume get browser-man screenshots .
 
 # TODO
