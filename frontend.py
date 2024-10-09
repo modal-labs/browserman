@@ -39,12 +39,10 @@ def tgi_mixtral():
 
         async def generate():
             # TODO: stream
-            text = await Model().inference.remote.aio( unquote(question))
+            text = await Model().inference.remote.aio(unquote(question))
             yield f"data: {json.dumps(dict(text=text), ensure_ascii=False)}\n\n"
 
         return StreamingResponse(generate(), media_type="text/event-stream")
 
-    web_app.mount(
-        "/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True)
-    )
+    web_app.mount("/", fastapi.staticfiles.StaticFiles(directory="/assets", html=True))
     return web_app
