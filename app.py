@@ -61,7 +61,8 @@ async def session(query: str):
     def extract_parameters(output):
         soup = BeautifulSoup(output, features="html.parser")
         for e in soup:
-            assert e.name.startswith('function=')
+            if not e.name.startswith('function='):
+                return None
             return json.loads(e.contents[0])
         return None
 
