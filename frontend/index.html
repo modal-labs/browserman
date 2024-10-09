@@ -9,35 +9,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Modal | LLM Engine</title>
+    <title>Browserman</title>
   </head>
   <body>
     <section x-data="state()" class="max-w-2xl mx-auto pt-16 px-4">
-      <div class="text-xs font-semibold tracking-wide uppercase text-center text-black">
-        <a
-          href="https://modal.com/docs/examples/text_generation_inference"
-          class="inline-flex gap-x-1 items-center bg-lime-400 py-0.5 px-3 rounded-full hover:text-lime-400 hover:ring hover:ring-lime-400 hover:bg-white focus:outline-neutral-400"
-          target="_blank"
-        >
-          powered by Modal
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-4 h-4 animate-pulse -mr-1"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="lucide lucide-chevrons-right"
-          >
-            <path d="m6 17 5-5-5-5" />
-            <path d="m13 17 5-5-5-5" />
-          </svg>
-        </a>
-      </div>
       <div class="text-4xl mt-4 mb-4 font-semibold tracking-tighter text-center">
-        Modal LLM Engine
+        Browserman
       </div>
       <div x-show="info.loaded && info.model" x-text="info.model" class="text-2xl mb-4 font-medium tracking-tighter text-center">
       </div>
@@ -97,7 +74,7 @@
         <input
           x-model="nextPrompt"
           type="text"
-          placeholder="Ask something ..."
+          placeholder="Get me a pizza on Doordash ..."
           class="flex grow w-full h-10 pl-4 pr-12 py-2 text-md bg-white border rounded-3xl border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
           @keydown.window.prevent.ctrl.k="$el.focus()"
           @keydown.window.prevent.cmd.k="$el.focus()"
@@ -105,7 +82,7 @@
         />
         <div class="absolute top-0 right-0 flex items-center h-full pr-[0.3125rem]">
           <button
-            @click.prevent="callApi()"
+            @click.prevent="startSession()"
             class="rounded-full bg-lime-400 p-2 focus:border-neutral-300 focus:outline-neutral-400"
           >
             <svg
@@ -153,10 +130,14 @@
         function state() {
           return {
             nextPrompt: "",
+            currentPrompt: "",
             items: [],
-            info: { backlog: 0, num_total_runners: 0 },
-            callApi() {
-              console.log(this.nextPrompt);
+            info: {
+              loaded: false,
+              backlog: 0,
+              num_total_runners: 0,
+            },
+            startSession() {
               if (!this.nextPrompt) return;
 
               let item = {
@@ -166,39 +147,48 @@
                 loading: true,
                 markdownCompletion: "",
               };
+              this.currentPrompt = item.prompt;
               this.nextPrompt = "";
-              this.items.push(item);
-              const eventSource = new EventSource(
-                `/completion/${encodeURIComponent(item.prompt)}`,
-              );
 
-              console.log("Created event source ...");
-
-              eventSource.onmessage = (event) => {
-                item.completion += JSON.parse(event.data).text;
-                item.markdownCompletion = marked.parse(item.completion, {mangle: false, headerIds: false});
-                // Hacky way to notify element to update
-                this.items = this.items.map((i) =>
-                  i.id === item.id ? { ...item } : i,
-                );
-              };
-
-              eventSource.onerror = (event) => {
-                eventSource.close();
-                item.loading = false;
-                this.items = this.items.map((i) =>
-                  i.id === item.id ? { ...item } : i,
-                );
-                console.log(item.completion);
-              };
-            },
-            refreshInfo() {
-              fetch("/stats")
+              fetch("/start", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ query: item.prompt }),
+              })
                 .then((response) => response.json())
                 .then((data) => {
-                  this.info = { ...data, loaded: true };
+                  console.log(data);
                 })
                 .catch((error) => console.log(error));
+
+              // this.items.push(item);
+              // const eventSource = new EventSource(
+              //   `/completion/${encodeURIComponent(item.prompt)}`,
+              // );
+
+              // console.log("Created event source ...");
+
+              // eventSource.onmessage = (event) => {
+              //   item.completion += JSON.parse(event.data).text;
+              //   item.markdownCompletion = marked.parse(item.completion, {mangle: false, headerIds: false});
+              //   // Hacky way to notify element to update
+              //   this.items = this.items.map((i) =>
+              //     i.id === item.id ? { ...item } : i,
+              //   );
+              // };
+
+              // eventSource.onerror = (event) => {
+              //   eventSource.close();
+              //   item.loading = false;
+              //   this.items = this.items.map((i) =>
+              //     i.id === item.id ? { ...item } : i,
+              //   );
+              //   console.log(item.completion);
+              // };
+            },
+            refreshInfo() {
             },
           };
         }
