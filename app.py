@@ -92,7 +92,7 @@ async def session(query: str):
     async with async_playwright() as p:
         print("Launching chromium...")
         browser = await p.chromium.launch()
-        context = await browser.new_context()
+        context = await browser.new_context(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36")
         page = await context.new_page()
 
         while step < 10:
