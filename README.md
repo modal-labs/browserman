@@ -1,6 +1,6 @@
 # Run
-modal run -i browserman.py
-modal volume get browser-man screenshots .
+- modal run -i browserman.py
+- modal volume get browser-man screenshots .
 
 # TODO
 - Integrate playwright_llm_start.py with frontend.py
