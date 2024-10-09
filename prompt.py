@@ -1,3 +1,4 @@
+import re
 import typing
 from pathlib import Path
 from textwrap import dedent
@@ -98,6 +99,7 @@ def prompt(query: str, current_url: str, current_dom: str, history: typing.Seque
         for t in soup.find_all("a"):
             extracted.append(t)
         cleaned_dom = "\n".join([str(e) for e in extracted])
+        cleaned_dom = re.sub(r'\?cursor=[^"]+"', "", cleaned_dom)
         prompt = prompt.replace("CURRENT_DOM_PLACEHOLDER", f"DOM of current web page: {cleaned_dom}")
     else:
         prompt = prompt.replace("CURRENT_DOM_PLACEHOLDER", "")
@@ -113,11 +115,30 @@ def prompt(query: str, current_url: str, current_dom: str, history: typing.Seque
 
 
 def main():
-    print(prompt("Please order me food from doordash", "", "", []))
+    APP_NAME = "browserman"
+    QUERY = "Please order me food from doordash"
 
-    print(prompt("Please order me food from doordash", "https://www.doordash.com/home/",
-                 Path("doordash_01.html").read_text(),
-                 ['<function=navigate_to>{"url": "https://www.doordash.com/"}</function>']))
+    f = modal.Function.lookup(APP_NAME, "Model.inference")
+
+    # prompt_00 = prompt(QUERY, "", "", [])
+    # print("Prompt 1")
+    # print("======")
+    # print(prompt_00)
+    # step_01 = f.remote(prompt_00, None)
+    # print("Step 1")
+    # print("======")
+    # print(step_01)
+
+    prompt_01 = prompt(QUERY, "https://www.doordash.com/home/",
+                       Path("doordash_01.html").read_text(),
+                       ['<function=navigate_to>{"url": "https://www.doordash.com/"}</function>'])
+    print("Prompt 2")
+    print("======")
+    print(prompt_01)
+    step_02 = f.remote(prompt_01, Image.open("doordash_01.png"))
+    print("Step 2")
+    print("======")
+    print(step_02)
 
 
 if __name__ == "__main__":
