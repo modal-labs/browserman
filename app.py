@@ -46,8 +46,6 @@ def encode_image(image):
     return base64.b64encode(resized_image_bytes).decode('utf-8')
 
 def extract_parameters(output):
-    output = output.split('\n')[0]
-
     soup = BeautifulSoup(output, features="html.parser")
     for function_name in ['navigate_to', 'click_button', 'final_answer', 'go_back']:
         element = soup.find(f'function={function_name}')
@@ -55,10 +53,7 @@ def extract_parameters(output):
             return json.loads(element.contents[0])
     return {}
 
-def get_screenshot_path(call_id: str, idx: int):
-    return screenshots_path / call_id / f"screenshot_{idx}.png"
-
-@app.function(image=playwright_image, allow_concurrent_inputs=10, mounts=[modal.Mount.from_local_python_packages("prompt")])
+@app.function(image=playwright_image, allow_concurrent_inputs=10, mounts=[modal.Mount.from_local_python_packages("prompt")], container_idle_timeout=1200)
 async def session(query: str):
     call_id = modal.current_function_call_id()
     Model = modal.Cls.lookup("browserman-llm", "Model")
@@ -71,13 +66,14 @@ async def session(query: str):
     async def get_next_target(page):
         nonlocal url, dom, history
         prompt = get_prompt(query, url, dom, history)
-        print(f"======Step {step}=====")
 
         # Retry until we get a URL
-        for i in range(10):
+        for _ in range(10):
             output = await Model().inference.remote.aio(prompt, None, temperature=0.2)
-            history.append(output) # TODO: truncate?
+
             print(f"Model output: {output}")
+            output = output.split('\n')[0]
+            history.append(output)
 
             parameters = extract_parameters(output)
             print("Parameters: ", parameters)
@@ -94,10 +90,12 @@ async def session(query: str):
         page = await context.new_page()
 
         while step < 10:
+            print(f"======Step {step}=====")
             if step > 0:
                 print(f"Taking screenshot #{step}...")
-                await page.screenshot(path=get_screenshot_path(call_id, step))
-                image = Image.open(get_screenshot_path(call_id, step))
+                path = screenshots_path / call_id / f"screenshot_{step}.png"
+                await page.screenshot(path=path)
+                image = Image.open(path)
                 dom = await page.content()
                 await events.put.aio({"image": encode_image(image)}, partition = call_id)
 
@@ -111,6 +109,15 @@ async def session(query: str):
                 options = page.get_by_role('link', name=target['button_text'])
                 print(options)
                 button = options.nth(0)
+
+                if not await button.is_visible():
+                    print("Button is not visible, trying to scroll into view...")
+                    await button.scroll_into_view_if_needed()
+                    if not await button.is_visible():
+                        print("Button is still not visible, skipping.")
+                        history[-1] += " (FAILED)"
+                        continue
+
                 bounding_box = await button.bounding_box()
                 print(f"Button position: x={bounding_box['x']}, y={bounding_box['y']}")
                 print(f"Button size: width={bounding_box['width']}, height={bounding_box['height']}")
@@ -160,9 +167,6 @@ async def session(query: str):
 
             await page.wait_for_load_state("networkidle")
             await page.wait_for_load_state("load")
-
-            print(f"Taking screenshot #{step}...")
-            await page.screenshot(path=get_screenshot_path(call_id, step))
 
 
 
