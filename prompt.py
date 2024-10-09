@@ -49,14 +49,13 @@ parameters => a JSON dict with the function argument name as key and function ar
 end_tag => `</function>`
 
 Here is an example,
-<function=example_function_name>{"example_name": "example_value"}</function>
+<function=navigate_to>{"url": "https://food.com"}</function>
 
 Reminder:
 - Function calls MUST follow the specified format
 - Required parameters MUST be specified
 - Only call one function at a time
 - Put the entire function call reply on one line
-- Always add your sources when using search results to answer the user query
 
 You are an obedient and helpful assistant that excels in following instructions to the letter. 
 
@@ -84,7 +83,7 @@ def prompt(query: str, current_url: str, current_dom: str, history: typing.Seque
 
     if current_dom:
         soup = BeautifulSoup(current_dom, features="html.parser")
-        extracted = []
+        links = []
         for t in soup.find_all("script"):
             t.extract()
         for t in soup.find_all("svg"):
@@ -96,10 +95,10 @@ def prompt(query: str, current_url: str, current_dom: str, history: typing.Seque
                 for attr in unwanted_attrs:
                     del e[attr]
         for t in soup.find_all("a"):
-            extracted.append(t)
-        cleaned_dom = "\n".join([str(e) for e in extracted])
-        cleaned_dom = re.sub(r'\?cursor=[^"]+"', "", cleaned_dom)
-        prompt = prompt.replace("CURRENT_DOM_PLACEHOLDER", f"DOM of current web page: {cleaned_dom}")
+            links.append(t)
+        links = "\n".join([str(e) for e in links])
+        links = re.sub(r'\?cursor=[^"]+"', "", links)
+        prompt = prompt.replace("CURRENT_DOM_PLACEHOLDER", f"Links on current web page: {links}")
     else:
         prompt = prompt.replace("CURRENT_DOM_PLACEHOLDER", "")
 
@@ -120,10 +119,12 @@ def main():
     f = modal.Function.lookup(APP_NAME, "Model.inference")
 
     prompt_00 = prompt(QUERY, "", "", [])
+    print()
     print("Prompt 1")
     print("======")
     print(prompt_00)
     step_01 = f.remote(prompt_00, None)
+    print()
     print("Step 1")
     print("======")
     print(step_01)
@@ -131,10 +132,12 @@ def main():
     prompt_01 = prompt(QUERY, "https://www.doordash.com/home/",
                        Path("doordash_01.html").read_text(),
                        ['<function=navigate_to>{"url": "https://www.doordash.com/"}</function>'])
+    print()
     print("Prompt 2")
     print("======")
     print(prompt_01)
     step_02 = f.remote(prompt_01, Image.open("doordash_01.png"))
+    print()
     print("Step 2")
     print("======")
     print(step_02)
