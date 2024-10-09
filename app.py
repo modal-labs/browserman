@@ -95,16 +95,16 @@ async def session(query: str):
         browser = await p.chromium.launch()
         context = await browser.new_context()
         page = await context.new_page()
-        
-        step += 1
 
-        while step < 5:
+        while step < 10:
             if step > 0:
                 print(f"Taking screenshot #{step}...")
                 await page.screenshot(path=get_screenshot_path(call_id, step))
                 image = Image.open(get_screenshot_path(call_id, step))
                 dom = await page.content()
                 await events.put.aio({"image": encode_image(image)}, partition = call_id)
+
+            step += 1
 
             target = await get_next_target(page)
             await events.put.aio(target, partition = call_id)

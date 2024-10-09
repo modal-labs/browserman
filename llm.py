@@ -33,11 +33,11 @@ class Model:
         self.llm = LLM(model=MODEL_NAME, max_num_seqs=1, enforce_eager=True, tensor_parallel_size=GPU_COUNT)
 
     @modal.method()
-    def inference(self, prompt, image):
+    def inference(self, prompt, image, temperature=0.2):
         from vllm import SamplingParams
 
         # Set up sampling parameters
-        sampling_params = SamplingParams(temperature=0.2, max_tokens=300)
+        sampling_params = SamplingParams(temperature=temperature, max_tokens=300)
 
         # Generate the response
         inputs = {
