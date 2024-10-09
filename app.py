@@ -11,6 +11,8 @@ events = modal.Queue.from_name("browserman-events", create_if_missing=True)
 
 volume = modal.Volume.from_name("browserman-volume", create_if_missing=True)
 
+cookie_dict = modal.Dict.from_name("browserman-cookies", create_if_missing=True)
+
 frontend_path = Path(__file__).parent / "frontend"
 
 screenshots_path = Path("/tmp/screenshots")
@@ -213,7 +215,14 @@ def main():
 
     @web_app.post("/cookies")
     async def cookies(request: Request):
+        import urllib.parse
         data = await request.json()
+
+        url = data["url"]
+        cookies = data["cookies"]
+
+        parsed_url = urllib.parse.urlparse(url)
+        await cookie_dict.put.aio(parsed_url.hostname, cookies)
 
 
 
