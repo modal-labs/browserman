@@ -93,7 +93,7 @@ async def session(query: str):
     url = ""
     image = None
     history = []
-    prompt = get_prompt(query, url, history, dom)
+    prompt = get_prompt(query, url, dom, history)
     print("Prompt: ", prompt)
     # Retry indefinitely until we get a URL
     while True:
@@ -140,7 +140,7 @@ async def session(query: str):
             await events.put.aio({"image": encode_image(image)}, partition = call_id)
 
             print(query)
-            prompt = get_prompt(query, url, history, dom)
+            prompt = get_prompt(query, url, dom, history)
 
             # Retry indefinitely until we get a valid action
             while True:
