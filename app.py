@@ -9,24 +9,11 @@ app = modal.App("browserman")
 
 events = modal.Queue.from_name("browserman-events", create_if_missing=True)
 
-volume = modal.Volume.from_name("browserman-volume", create_if_missing=True)
-
 cookie_dict = modal.Dict.from_name("browserman-cookies", create_if_missing=True)
 
 frontend_path = Path(__file__).parent / "frontend"
 
 screenshots_path = Path("/tmp/screenshots")
-
-dummy_output = """<function=navigate_to>{"url": "https://www.doordash.com/"}</function>
-Step 2: <function=click_button>{"button_text": "Sign In"}</function>
-Step 3: <function=click_button>{"button_text": "Enter Delivery Address"}</function>
-Step 4: <function=click_button>{"button_text": "Search for restaurants"}</function>
-Step 5: <function=click_button>{"button_text": "Pizza"}</function>
-Step 6: <function=click_button>{"button_text": "Select a restaurant"}</function>
-Step 7: <function=click_button>{"button_text": "Choose a pizza"}</function>
-Step 8: <function=click_button>{"button_text": "Add to cart"}</function>
-Step 9: <function=click_button>{"button_text": "Checkout"}</function>
-Step 10: <function=click_button>{"button_text": "Place Order"}</function>"""
 
 playwright_image = (
     modal.Image.debian_slim(python_version="3.10" )
@@ -50,131 +37,95 @@ with playwright_image.imports():
     from PIL import Image
 
 def encode_image(image):
-    resized_image = image.resize((256, 256))
+    resized_image = image.resize((320, 180))
 
     buffer = io.BytesIO()
     resized_image.save(buffer, format="PNG")
     resized_image_bytes = buffer.getvalue()
     return base64.b64encode(resized_image_bytes).decode('utf-8')
 
-@app.function(image=playwright_image, allow_concurrent_inputs=10,     mounts=[modal.Mount.from_local_python_packages("prompt")])
-def extract_parameters(output = dummy_output):
+def extract_parameters(output):
     output = output.split('\n')[0]
 
     soup = BeautifulSoup(output, features="html.parser")
     for e in soup.find_all('function=navigate_to'):
-        data = json.loads(e.contents[0])
-        print(data)
-        return data
+        return json.loads(e.contents[0])
     for e in soup.find_all('function=click_button'):
-        data = json.loads(e.contents[0])
-        print(data)
-        return data
+        return json.loads(e.contents[0])
     return None
 
-@app.function(image=playwright_image, allow_concurrent_inputs=10,     mounts=[modal.Mount.from_local_python_packages("prompt")], volumes={"/data": volume})
+def get_screenshot_path(call_id: str, idx: int):
+    return screenshots_path / call_id / f"screenshot_{idx}.png"
+
+@app.function(image=playwright_image, allow_concurrent_inputs=10, mounts=[modal.Mount.from_local_python_packages("prompt")])
 async def session(query: str):
     call_id = modal.current_function_call_id()
-    # Unique screenshot paths so we can see them all at the end.
-    screenshot_index = 0
-
-    def get_next_screenshot_path():
-        nonlocal screenshot_index
-        return_val = screenshots_path / call_id / f"screenshot_{screenshot_index}.png"
-        screenshot_index += 1
-        return return_val
-
-    def get_last_screenshot_path():
-        nonlocal screenshot_index
-        return screenshots_path / call_id / f"screenshot_{screenshot_index - 1}.png"
-
-    Model = modal.Cls.lookup("browserman", "Model")
-
-    # Step 1): Get a URL given the prompt
-    dom = ""
-    url = ""
-    image = None
+    Model = modal.Cls.lookup("browserman-llm", "Model")
+    step = 0
     history = []
-    prompt = get_prompt(query, url, dom, history)
-    print("Prompt: ", prompt)
-    # Retry indefinitely until we get a URL
-    while True:
-        print(f"Attempting to get URL from Model...")
-        output = await Model().inference.remote.aio(prompt, None)
-        print(f"\tModel output: {output}")
+    image = None
+    url = ""
+    dom = ""
 
-        parameters = extract_parameters.local(output)
-        print("Parameters: ", parameters)
-        if parameters is not None:
+    async def get_next_target(page):
+        nonlocal url, dom, history
+        prompt = get_prompt(query, url, dom, history)
+        print("Prompt: ", prompt)
+
+        # Retry indefinitely until we get a URL
+        while True:
+            print("Attempting to get URL from Model...")
+            output = await Model().inference.remote.aio(prompt, None)
+            history.append(output) # TODO: truncate?
+            await events.put.aio({"text": output}, partition = call_id)
+            print(f"Model output: {output}")
+
+            parameters = extract_parameters(output)
+            print("Parameters: ", parameters)
+
             if "url" in parameters:
-                url = parameters["url"]
-                break
-    await events.put.aio(parameters, partition = call_id)
-    history.append(output)
+                return {"url": parameters["url"]}
+            elif "button_text" in parameters:
+                button_text = parameters["button_text"]
+                print(f"Looking for button with text={button_text}...")
+                button = page.get_by_role('link', name=button_text).nth(0)
+                return {"button": button}
 
-    # Step 2): Obtain initial screenshot
     async with async_playwright() as p:
-        print(f"Launch chromium...")
+        print("Launchng chromium...")
         browser = await p.chromium.launch()
         page = await browser.new_page()
+        
+        step += 1
 
-        print(f"Going to url: {url}...")
-        await page.goto(url)
+        while step < 5:
+            if step > 0:
+                print(f"Taking screenshot #{step}...")
+                await page.screenshot(path=get_screenshot_path(call_id, step))
+                image = Image.open(get_screenshot_path(call_id, step))
+                dom = await page.content()
+                await events.put.aio({"image": encode_image(image)}, partition = call_id)
 
-        print(f"Waiting for load state...")
-        await page.wait_for_load_state("load")
+            target = await get_next_target(page)
 
-        print(f"Taking screenshot #{screenshot_index}...")
-        await page.screenshot(path=get_next_screenshot_path())
+            if "button" in target:
+                button = target["button"]
+                async with page.expect_navigation():
+                    print(f"Clicking {button}...")
+                    await button.click(timeout=5000)
+            else:
+                assert "url" in target
+                url = target["url"]
 
-        # Step 2): Loop: LLM(screenshot) -> text of button to click
-        while True:
-            image = Image.open(get_last_screenshot_path())
-            dom = await page.content()
-            # print(dom)
-            # print(type(dom))
-            # breakpoint()
-            print(type(dom))
-            Path("/data").mkdir(parents=True, exist_ok=True)
-            with open("/data/dom.txt", "w") as f:
-                f.write(dom)
-            dom = str(dom)
-            await events.put.aio({"image": encode_image(image)}, partition = call_id)
+                print(f"Going to url: {url}...")
+                await page.goto(url)
 
-            print(query)
-            prompt = get_prompt(query, url, dom, history)
-
-            # Retry indefinitely until we get a valid action
-            while True:
-                print(f"Attempting to get action from Model...")
-                output = await Model().inference.remote.aio(prompt, image)
-                print(f"\tModel output: {output}")
-
-                # * <function=click_button>{"button_text": "Delivery Fees: Under $3"}</function>
-                parameters = extract_parameters.local(output)
-                if parameters is not None:
-                    if "button_text" in parameters:
-                        button_text = parameters["button_text"]
-                        break
-            await events.put.aio({"text": output}, partition = call_id)
-            history.append(output)
-
-            if button_text == "Done":  # XXX Never? XXX
-                break
-
-            print(f"Looking for button with text={button_text}...")
-            button = page.get_by_role('link', name=button_text).nth(0)
-            print(f"Clicking {button}...")
-            async with page.expect_navigation():
-                await button.click(timeout=5000)
-
-            print(f"Waiting for navigation & networkidle & load state...")
+            print("Waiting for navigation & networkidle & load state...")
             await page.wait_for_load_state("networkidle")
             await page.wait_for_load_state("load")
 
-            print(f"Taking screenshot #{screenshot_index}...")
-            await page.screenshot(path=get_next_screenshot_path())
-    return {"success": True}
+            print(f"Taking screenshot #{step}...")
+            await page.screenshot(path=get_screenshot_path(call_id, step))
 
 
 
