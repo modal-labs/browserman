@@ -120,11 +120,13 @@
 
                   eventSource.onmessage = (event) => {
                     data = JSON.parse(event.data);
-                    if (data.text) {
-                      this.lastText = data.text;
-                    } else if (data.image) {
+                    if (data.image) {
                       this.lastImage = data.image;
-                    } else if (data.done) {
+                    } else if (data.url) {
+                      this.lastText = `Navigating to ${data.url}...`;
+                    } else if (data.button) {
+                      this.lastText = `Clicking button with text ${data.button}...`;
+                    } else if (data.final_answer) {
                       this.done = true;
                       eventSource.close();
                     }

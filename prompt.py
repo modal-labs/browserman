@@ -39,6 +39,19 @@ Use the function 'click_button' to: To click a button on the web page.
     }
 }
 
+Use the function 'final_answer' to: To come up with a final text response to the user's query based on the web page content.
+{
+    "name": "final_answer",
+    "description": "Respond to the user's query based on the web page content",
+    "parameters": {
+        "button_text": {
+            "param_type": "string",
+            "description": "final answer",
+            "required": true
+        }
+    }
+}
+
 If a you choose to call a function ONLY reply in the following format with no prefix or suffix:
 <{start_tag}={function_name}>{parameters}{end_tag}
 where

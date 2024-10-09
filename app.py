@@ -78,7 +78,6 @@ async def session(query: str):
             print("Attempting to get URL from Model...")
             output = await Model().inference.remote.aio(prompt, None)
             history.append(output) # TODO: truncate?
-            await events.put.aio({"text": output}, partition = call_id)
             print(f"Model output: {output}")
 
             parameters = extract_parameters(output)
@@ -86,11 +85,10 @@ async def session(query: str):
 
             if "url" in parameters:
                 return {"url": parameters["url"]}
+            elif "final_answer" in parameters:
+                return {"final_answer": parameters["final_answer"]}
             elif "button_text" in parameters:
-                button_text = parameters["button_text"]
-                print(f"Looking for button with text={button_text}...")
-                button = page.get_by_role('link', name=button_text).nth(0)
-                return {"button": button}
+                return {"button_text": parameters["button_text"]}
 
     async with async_playwright() as p:
         print("Launching chromium...")
@@ -109,11 +107,15 @@ async def session(query: str):
                 await events.put.aio({"image": encode_image(image)}, partition = call_id)
 
             target = await get_next_target(page)
+            await events.put.aio(target, partition = call_id)
 
-            if "button" in target:
-                button = target["button"]
+            if "button_text" in target:
+                print(f"Looking for button with text={target['button_text']}...")
+                button = page.get_by_role('link', name=target['button_text']).nth(0)
                 print(f"Clicking {button}...")
-                await button.click(timeout=5000)
+                await button.click(timeout=30_000)
+            elif "final_answer" in target:
+                break
             else:
                 assert "url" in target
                 url = target["url"]
