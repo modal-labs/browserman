@@ -53,7 +53,7 @@ def extract_parameters(output):
             return json.loads(element.contents[0])
     return {}
 
-@app.function(image=playwright_image, allow_concurrent_inputs=10, mounts=[modal.Mount.from_local_python_packages("prompt")], container_idle_timeout=1200)
+@app.function(image=playwright_image, allow_concurrent_inputs=10, mounts=[modal.Mount.from_local_python_packages("prompt")], container_idle_timeout=1200, timeout=1200, region="us-east")
 async def session(query: str):
     call_id = modal.current_function_call_id()
     Model = modal.Cls.lookup("browserman-llm", "Model")
@@ -64,12 +64,13 @@ async def session(query: str):
     dom = ""
 
     async def get_next_target(page):
-        nonlocal url, dom, history
+        nonlocal url, dom, history, image
         prompt = get_prompt(query, url, dom, history)
+        print(prompt.split("<|start_header_id|>user<|end_header_id|>")[1])
 
         # Retry until we get a URL
         for _ in range(10):
-            output = await Model().inference.remote.aio(prompt, None, temperature=0.2)
+            output = await Model().inference.remote.aio(prompt, image, temperature=0.2)
 
             print(f"Model output: {output}")
             output = output.split('\n')[0]
@@ -112,7 +113,11 @@ async def session(query: str):
 
                 if not await button.is_visible():
                     print("Button is not visible, trying to scroll into view...")
-                    await button.scroll_into_view_if_needed()
+                    try:
+                        await button.scroll_into_view_if_needed(timeout=5_000)
+                    except Exception:
+                        print("Failed to scroll into view")
+
                     if not await button.is_visible():
                         print("Button is still not visible, skipping.")
                         history[-1] += " (FAILED)"
@@ -142,7 +147,16 @@ async def session(query: str):
                 ))
                 await events.put.aio({"image": encode_image(cropped_image)}, partition = call_id)
                 print(f"Clicking {button}...")
-                await button.click(timeout=30_000)
+                try:
+                    await page.mouse.click(
+                        x=bounding_box['x'] + bounding_box['width'] / 2,
+                        y=bounding_box['y'] + bounding_box['height'] / 2,
+                        timeout=5_000
+                    )
+                except Exception:
+                    print("Failed to click")
+                    history[-1] += " (FAILED)"
+                    continue
             elif "final_answer" in target:
                 break
             elif "go_back" in target:

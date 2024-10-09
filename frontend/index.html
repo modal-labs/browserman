@@ -82,6 +82,7 @@
             lastText: "",
             lastImage: "",
             done: false,
+            eventSource: null,
             info: {
               loaded: false,
               backlog: 0,
@@ -102,6 +103,10 @@
               this.lastText = "";
               this.lastImage = "";
               this.done = false;
+              
+              if (this.eventSource) {
+                this.eventSource.close();
+              }
 
               fetch("/start", {
                 method: "POST",
@@ -115,28 +120,29 @@
                   console.log(data);
                   this.callId = data.call_id;
 
-                  const eventSource = new EventSource(
+                  this.eventSource = new EventSource(
                     `/status/${this.callId}`,
                   );
 
                   console.log("Created event source ...");
 
-                  eventSource.onmessage = (event) => {
+                  this.eventSource.onmessage = (event) => {
                     data = JSON.parse(event.data);
+                    console.log(data);
                     if (data.image) {
                       this.lastImage = data.image;
                     } else if (data.url) {
                       this.lastText = `Navigating to ${data.url}...`;
-                    } else if (data.button) {
-                      this.lastText = `Clicking button with text ${data.button}...`;
+                    } else if (data.button_text) {
+                      this.lastText = `Clicking button with text ${data.button_text}...`;
                     } else if (data.final_answer) {
                       this.lastText = `Final answer: ${data.final_answer}`;
                       this.done = true;
-                      eventSource.close();
+                      this.eventSource.close();
                     }
                   };
 
-                  eventSource.onerror = (event) => {
+                  this.eventSource.onerror = (event) => {
                     // eventSource.close();
                     console.log(event);
                   };
