@@ -65,7 +65,7 @@ def extract_parameters(output):
     container_idle_timeout=1200,
     timeout=1200,
     region="us-east",
-    volumes = {"/data": modal.Volume.from_name("browserman-volume", create_if_missing=True)}
+    volumes={"/data": modal.Volume.from_name("browserman-volume", create_if_missing=True)}
 )
 async def session(query: str):
     call_id = modal.current_function_call_id()
@@ -76,6 +76,7 @@ async def session(query: str):
     url = ""
     dom = ""
     use_buttons = True
+
     async def get_next_target():
         nonlocal url, dom, history, image
         prompt = get_prompt(query, url, dom, history, use_buttons)
@@ -84,7 +85,7 @@ async def session(query: str):
 
         # Retry until we get a URL
         for _ in range(10):
-            print("Prompting model...")
+            print(f"Prompting model: {prompt}")
             output = await Model().inference.remote.aio(prompt, image, temperature=0.2)
 
             print(f"Model output: {output}")
@@ -128,9 +129,11 @@ async def session(query: str):
             await events.put.aio(target, partition=call_id)
 
             if "button_text" in target:
-                print(f"Looking for button with text={target['button_text']}...")
-                options = [page.get_by_role("button", name=target["button_text"]).nth(0)]
-                options.append(page.get_by_role("link", name=target["button_text"]).nth(0))
+                button_text = target['button_text']
+                reason = target.get('reason', "")
+                print(f"Looking for button with text={button_text} because `{reason}`...")
+                options = [page.get_by_role("button", name=button_text).nth(0)]
+                options.append(page.get_by_role("link", name=button_text).nth(0))
 
                 for button in options:
                     print(f"Clicking {button}...")

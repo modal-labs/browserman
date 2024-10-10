@@ -18,6 +18,11 @@ BUTTON_INSTRUCTION = """Use the function 'click_button' to: To click a button on
             "description": "button text",
             "required": true
         }
+        "reason": {
+            "param_type": "string",
+            "description": "reason for clicking this button",
+            "required": true
+        }
     }
 }"""
 
@@ -75,8 +80,14 @@ start_tag => `<function`
 parameters => a JSON dict with the function argument name as key and function argument value as value.
 end_tag => `</function>`
 
-Here is an example,
+Here is an example of navigating to a URL:
 <function=navigate_to>{"url": "https://food.com"}</function>
+
+Here is an example of clicking a button:
+<function=click_button>{"button_text": "Sushi", "reason": "The user asked for sushi and clicking this button should make the web page display sushi restaurants"}</function>
+
+Here is another example of clicking a button: 
+<function=click_button>{"button_text": "SOHO Bodega", "reason": "The user asked for sushi and the image of this store is showing a sushi box"}</function>
 
 You are an obedient and helpful assistant that excels in following instructions to the letter. 
 
