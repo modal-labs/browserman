@@ -84,6 +84,7 @@ async def session(query: str):
 
         # Retry until we get a URL
         for _ in range(10):
+            print("Prompting model...")
             output = await Model().inference.remote.aio(prompt, image, temperature=0.2)
 
             print(f"Model output: {output}")
