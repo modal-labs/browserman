@@ -7,34 +7,31 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/5.1.2/marked.min.js"></script>
     <link href="https://unpkg.com/@tailwindcss/typography@0.4.1/dist/typography.min.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mansalva&display=swap" rel="stylesheet">
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Browserman</title>
   </head>
   <body>
-    <section x-data="state()" class="max-w-2xl mx-auto pt-16 px-4">
-      <div class="text-4xl mt-4 mb-4 font-semibold tracking-tighter text-center">
-        Browserman
+    <section x-data="state()" class="max-w-2xl mx-auto pt-16 px-4  w-[900px]">
+      <div class="flex items-center justify-center h-[130px] mb-[80px]">
+        <img src="Frame 1.svg" alt="Frame 1" class="h-[114px] w-auto mr-10">
+        <img src="Browserman.svg" alt="Browserman" class="h-[83px] w-auto">
       </div>
 
-      <form class="relative">
+      <form class="relative flex items-center">
         <input
           x-model="nextPrompt"
           type="text"
           placeholder="Get me a pizza on Doordash ..."
-          class="flex grow w-full h-10 pl-4 pr-12 py-2 text-md bg-white border rounded-3xl border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
+          class="flex grow w-full h-10 pl-4 pr-12 py-2 text-md bg-white border-2 rounded-3xl border-black ring-offset-background placeholder:text-neutral-500 focus:border-black focus:outline-none focus:ring-black disabled:cursor-not-allowed disabled:opacity-50 font-['Mansalva']"
           @keydown.window.prevent.ctrl.k="$el.focus()"
           @keydown.window.prevent.cmd.k="$el.focus()"
           autofocus
         />
-        <div class="absolute top-0 right-0 flex items-center h-full pr-[0.3125rem]">
-          <button
-            @click.prevent="startSession()"
-            class="rounded-full bg-lime-400 p-2 focus:border-neutral-300 focus:outline-neutral-400"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-          </button>
-        </div>
+        <button class="h-full bg-black text-white rounded-3xl px-4 py-2 cursor-pointer ml-4 font-['Mansalva']" @click.prevent="startSession()">
+          Go!
+        </button>
       </form>
 
       <div x-show="currentPrompt && !done" class="flex flex-wrap justify-center items-center mt-4 mb-6">
