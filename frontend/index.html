@@ -62,15 +62,17 @@
       </div>
 
 
-      <div x-show="lastText || lastImage" class="flex flex-col gap-y-4 my-8">
-        <div class="w-full border px-4 py-2 rounded-3xl">
-          <div x-show="lastText" class="text-sm mt-2 mb-4">
-            <p x-text="lastText"></p>
+      <div x-show="lastText[0] || lastText[1] || lastText[2] || lastText[3] || lastImage[0] || lastImage[1] || lastImage[2] || lastImage[3]" class="grid grid-cols-2 gap-4 my-8">
+        <template x-for="i in [0, 1, 2, 3]">
+          <div class="border px-4 py-2 rounded-3xl">
+            <div x-show="lastText[i]" class="text-sm mt-2 mb-4">
+              <p x-text="lastText[i]"></p>
+            </div>
+            <div x-show="lastImage[i]">
+              <img :src="'data:image/png;base64,' + lastImage[i]" alt="Image" class="w-full h-auto">
+            </div>
           </div>
-          <div x-show="lastImage">
-            <img :src="'data:image/png;base64,' + lastImage" alt="Last Image" class="w-full h-auto">
-          </div>
-        </div>
+        </template>
       </div>
 
       <script>
@@ -79,8 +81,8 @@
             nextPrompt: "",
             currentPrompt: "",
             callId: null,
-            lastText: "",
-            lastImage: "",
+            lastText: ["", "", "", ""],
+            lastImage: ["", "", "", ""],
             done: false,
             eventSource: null,
             info: {
@@ -100,54 +102,56 @@
               };
               this.currentPrompt = item.prompt;
               this.nextPrompt = "";
-              this.lastText = "";
-              this.lastImage = "";
+              this.lastText = ["", "", "", ""];
+              this.lastImage = ["", "", "", ""];
               this.done = false;
               
               if (this.eventSource) {
                 this.eventSource.close();
               }
 
-              fetch("/start", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ query: item.prompt }),
-              })
-                .then((response) => response.json())
-                .then((data) => {
-                  console.log(data);
-                  this.callId = data.call_id;
-
-                  this.eventSource = new EventSource(
-                    `/status/${this.callId}`,
-                  );
-
-                  console.log("Created event source ...");
-
-                  this.eventSource.onmessage = (event) => {
-                    data = JSON.parse(event.data);
-                    console.log(data);
-                    if (data.image) {
-                      this.lastImage = data.image;
-                    } else if (data.url) {
-                      this.lastText = `Navigating to ${data.url}...`;
-                    } else if (data.button_text) {
-                      this.lastText = `Clicking button with text ${data.button_text}...`;
-                    } else if (data.final_answer) {
-                      this.lastText = `Final answer: ${data.final_answer}`;
-                      this.done = true;
-                      this.eventSource.close();
-                    }
-                  };
-
-                  this.eventSource.onerror = (event) => {
-                    // eventSource.close();
-                    console.log(event);
-                  };
+              for (let i = 0; i < 4; i++) {
+                fetch("/start", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ query: item.prompt }),
                 })
-                .catch((error) => console.log(error));
+                  .then((response) => response.json())
+                  .then((data) => {
+                    console.log(data);
+                    this.callId = data.call_id;
+
+                    this.eventSource = new EventSource(
+                      `/status/${this.callId}`,
+                    );
+
+                    console.log("Created event source ...");
+
+                    this.eventSource.onmessage = (event) => {
+                      data = JSON.parse(event.data);
+                      console.log(data);
+                      if (data.image) {
+                        this.lastImage[i] = data.image;
+                      } else if (data.url) {
+                        this.lastText[i] = `Navigating to ${data.url}...`;
+                      } else if (data.button_text) {
+                        this.lastText[i] = `Clicking button with text ${data.button_text}...`;
+                      } else if (data.final_answer) {
+                        this.lastText[i] = `Final answer: ${data.final_answer}`;
+                        this.done = true;
+                        this.eventSource.close();
+                      }
+                    };
+
+                    this.eventSource.onerror = (event) => {
+                      // eventSource.close();
+                      console.log(event);
+                    };
+                  })
+                  .catch((error) => console.log(error));
+              }
             },
             refreshInfo() {
             },
