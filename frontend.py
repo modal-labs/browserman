@@ -5,8 +5,12 @@ app = modal.App("browserman-frontend")
 
 frontend_path = Path(__file__).parent / "llm-frontend"
 
+web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "fastapi[standard]==0.115.4"
+)
 
 @app.function(
+    image=web_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,
@@ -17,10 +21,10 @@ def tgi_mixtral():
     import json
 
     import fastapi
-    import fastapi.staticfiles
+    from fastapi import staticfiles
     from fastapi.responses import StreamingResponse
-
-    web_app = fastapi.FastAPI()
+    from fastapi import FastAPI
+    web_app = FastAPI()
 
     Model = modal.Cls.lookup("browserman", "Model")
 

@@ -23,7 +23,7 @@
         <input
           x-model="nextPrompt"
           type="text"
-          placeholder="Get me a pizza on Doordash ..."
+          placeholder="Get me a salad on Doordash ..."
           class="flex grow w-full h-10 pl-4 pr-12 py-2 text-md bg-white border-2 rounded-3xl border-black ring-offset-background placeholder:text-neutral-500 focus:border-black focus:outline-none focus:ring-black disabled:cursor-not-allowed disabled:opacity-50 font-['Mansalva']"
           @keydown.window.prevent.ctrl.k="$el.focus()"
           @keydown.window.prevent.cmd.k="$el.focus()"
@@ -58,19 +58,16 @@
         </div>
       </div>
 
-
-      <div x-show="lastText[0] || lastText[1] || lastText[2] || lastText[3] || lastImage[0] || lastImage[1] || lastImage[2] || lastImage[3]" class="grid grid-cols-2 gap-4 my-8">
-        <template x-for="i in [0, 1, 2, 3]">
-          <div class="border px-4 py-2 rounded-3xl">
-            <div x-show="lastText[i]" class="text-sm mt-2 mb-4">
-              <p x-text="lastText[i]"></p>
-            </div>
-            <div x-show="lastImage[i]">
-              <img :src="'data:image/png;base64,' + lastImage[i]" alt="Image" class="w-full h-auto">
-            </div>
-          </div>
-        </template>
-      </div>
+      <div x-show="lastText[0] || lastImage[0]" class="my-8">
+  		<div class="border px-4 py-2 rounded-3xl">
+    		<div x-show="lastText[0]" class="text-sm mt-2 mb-4">
+      			<p x-text="lastText[0]"></p>
+    		</div>
+    		<div x-show="lastImage[0]">
+      			<img :src="'data:image/png;base64,' + lastImage[0]" alt="Image" class="w-full h-auto">
+    		</div>
+  		</div>
+	  </div>
 
       <script>
         function state() {
@@ -102,12 +99,12 @@
               this.lastText = ["", "", "", ""];
               this.lastImage = ["", "", "", ""];
               this.done = false;
-              
+
               if (this.eventSource) {
                 this.eventSource.close();
               }
 
-              for (let i = 0; i < 4; i++) {
+              for (let i = 0; i < 1; i++) {
                 fetch("/start", {
                   method: "POST",
                   headers: {

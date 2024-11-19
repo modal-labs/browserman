@@ -13,7 +13,7 @@ events = modal.Queue.from_name("browserman-events", create_if_missing=True)
 volume = modal.Volume.from_name("browserman-volume", create_if_missing=True)
 cookie_dict = modal.Dict.from_name("browserman-cookies", create_if_missing=True)
 
-frontend_path = Path(__file__).parent / "frontend"
+frontend_path = Path(__file__).parent / "llm-frontend"
 
 screenshots_path = Path("/tmp/screenshots")
 
@@ -30,6 +30,7 @@ playwright_image = (
     )
     .pip_install("Pillow")
     .pip_install("beautifulsoup4")
+    .pip_install("fastapi[standard]==0.115.4")
     # .pip_install("ipython")
 )
 
@@ -220,8 +221,12 @@ async def session(query: str):
             await page.wait_for_load_state("networkidle", timeout=120_000)
             await page.wait_for_load_state("load", timeout=120_000)
 
+web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
+    "fastapi[standard]==0.115.4"
+)
 
 @app.function(
+    image=web_image,
     mounts=[modal.Mount.from_local_dir(frontend_path, remote_path="/assets")],
     keep_warm=1,
     allow_concurrent_inputs=20,
@@ -237,6 +242,7 @@ def main():
     from fastapi.responses import StreamingResponse
 
     web_app = fastapi.FastAPI()
+
 
     @web_app.post("/start")
     async def start(request: Request):
@@ -264,6 +270,7 @@ def main():
 
         url = data["url"]
         cookies = data["cookies"]
+        print (f"Received cookies for {url}: {cookies}")
 
         parsed_url = urllib.parse.urlparse(url)
         await cookie_dict.put.aio(parsed_url.hostname, cookies)

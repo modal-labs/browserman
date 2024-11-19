@@ -1,5 +1,14 @@
 **Disclaimer** Browserman was built during a @modal-labs internal hackathon, and the code has not been cleaned up yet.
 
+# Setup cookies
+- `modal deploy app.py`
+- Set up Chrome Extension
+  - Manage Extensions
+  - Load unpacked
+  - Upload files in browserman/chrome-extension
+- Navigate to url (e.g. www.doordash.com)
+  - Open Extension
+  - Send Cookies
 # Run
 - `modal deploy llm.py`
 - `modal deploy app.py` [or `modal serve app.py`]
