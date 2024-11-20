@@ -29,6 +29,7 @@ playwright_image = (
         "playwright install chromium",
     )
     .pip_install("Pillow")
+    .pip_install("tf-playwright-stealth")
     .pip_install("beautifulsoup4")
     .pip_install("fastapi[standard]==0.115.4")
     # .pip_install("ipython")
@@ -37,6 +38,7 @@ playwright_image = (
 with playwright_image.imports():
     from bs4 import BeautifulSoup
     from playwright.async_api import async_playwright
+    from playwright_stealth import stealth_async
     from prompt import get_prompt
     from PIL import Image
 
@@ -78,7 +80,7 @@ async def session(query: str):
     dom = ""
     use_buttons = True
 
-    async def get_next_target():
+    async def get_next_target(step):
         nonlocal url, dom, history, image
         prompt = get_prompt(query, url, dom, history, use_buttons)
         # print(prompt)
@@ -96,6 +98,11 @@ async def session(query: str):
             parameters = extract_parameters(output)
             print("Parameters: ", parameters)
 
+            if "domino" in url.lower() and step == 2: # Domino's HACK
+                return {
+                    "button_text": "Got it, thanks!",
+                    "reason": "remove card"}
+
             if parameters:
                 return parameters
 
@@ -108,6 +115,8 @@ async def session(query: str):
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
+        await stealth_async(page)
+
 
         while step < 10:
             print(f"======Step {step} {use_buttons=} =====")
@@ -124,7 +133,7 @@ async def session(query: str):
 
             step += 1
 
-            target = await get_next_target()
+            target = await get_next_target(step)
             if not use_buttons:
                 use_buttons = True
             await events.put.aio(target, partition=call_id)
@@ -218,8 +227,11 @@ async def session(query: str):
                 print("FAILED TO CLICK")
                 history[-1] += " (FAILED)"
 
-            await page.wait_for_load_state("networkidle", timeout=120_000)
-            await page.wait_for_load_state("load", timeout=120_000)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=15_000)
+                await page.wait_for_load_state("load", timeout=15_000)
+            except Exception as e:
+                print("Failed to wait for load state, continuing...")
 
 web_image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "fastapi[standard]==0.115.4"
