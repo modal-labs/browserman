@@ -1,7 +1,7 @@
 **Disclaimer** Browserman was built during a @modal-labs internal hackathon, and the code has not been cleaned up yet.
 
 # Issues
-- DoorDash demo is broken because of Cloudflare Captches. To fix Shariq tried:
+- DoorDash demo is broken because of Cloudflare Captchas. To fix Shariq tried:
   - playwright_stealth
   - Different cloud regions
   - Different user agents, HTTP headers, and timezones in new_context()
